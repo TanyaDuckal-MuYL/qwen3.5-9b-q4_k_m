@@ -34,7 +34,7 @@ def save_memory(fact, tag="general", dedup_threshold=0.1):
     existing = collection.query(
         query_embeddings=[memory_vector],
         n_results=1,
-        include=["distances", "ids"]
+        include=["distances"]
     )
 
     existing_ids = existing.get("ids") or []
