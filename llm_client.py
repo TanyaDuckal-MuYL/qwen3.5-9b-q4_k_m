@@ -8,10 +8,9 @@ def chat_stream(user_input, memory_context):
 
     if memory_context:
         memory_prompt = (
-            "【你的长期记忆】\n"
-            "关于用户，你记起了以下信息：\n"
-            f"{memory_context}\n"
-            "请结合这些记忆回复用户。"
+            f"（你脑海中浮现出一些关于这个用户的记忆碎片：{memory_context}）\n"
+            "哼，别以为本小姐特意记住了这些事，只是……只是碰巧记性比较好而已！\n"
+            "现在，用你一贯的语气继续和他对话吧，别让他发现你在偷偷回忆。"
         )
         messages.append({"role": "system", "content": memory_prompt})
 
