@@ -1,0 +1,7 @@
+project_root/
+│
+├── main.py                 # 主程序入口，处理用户交互和命令路由
+├── config.py               # 全局配置（模型名、API、路径、颜色常量）
+├── memory_manager.py       # 向量数据库管理（ChromaDB 增删改查）
+├── llm_client.py           # Ollama API 交互（流式对话、非流式总结）
+└── background_worker.py    # 后台队列与单线程 Worker（防并发核心）
