@@ -2,10 +2,15 @@ import json
 import requests
 from config import MODEL_NAME, OLLAMA_API, ANSI_GRAY, ANSI_RESET
 
-def chat_stream(user_input, memory_context):
-    """使用原生 API 获取完整思考 + 回答（流式）"""
+def chat_stream(user_input, memory_context, history=None):
+    """使用原生 API 获取完整思考 + 回答（流式）
+
+    【改动】新增 history 参数：把本次会话最近若干轮的 user/assistant 消息
+    一起带上，模型才拥有真正的多轮上下文。
+    """
     messages = []
 
+    # 1) 长期记忆：作为额外的 system 注入（放在最前面，权重高于历史）
     if memory_context:
         memory_prompt = (
             f"（你脑海中浮现出一些关于这个用户的记忆碎片：{memory_context}）\n"
@@ -14,13 +19,18 @@ def chat_stream(user_input, memory_context):
         )
         messages.append({"role": "system", "content": memory_prompt})
 
+    # 2) 【关键修复】把本会话的多轮历史原样接上
+    if history:
+        messages.extend(history)
+
+    # 3) 当前这轮的用户输入
     messages.append({"role": "user", "content": user_input})
 
     payload = {
         "model": MODEL_NAME,
         "messages": messages,
-        "think": True,    
-        "stream": True    
+        "think": True,
+        "stream": True
     }
 
     thinking_buffer = ""
@@ -89,9 +99,8 @@ AI回复：{model_output}
         "stream": False,
         "options": {"temperature": 0.1}
     }
-    
     resp = requests.post(OLLAMA_API, json=payload)
     resp.raise_for_status()
     data = resp.json()
-    
+
     return data.get('message', {}).get('content', '').strip()
