@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>文昭 · 千问娘工作台</title>
+<style>
+  :root { --ink:#2b3a67; --paper:#f7f5f0; --accent:#4a6fa5; --gold:#b98a2f; }
+  * { box-sizing:border-box; margin:0; }
+  body { font-family:"Microsoft YaHei",sans-serif; background:var(--paper);
+         color:var(--ink); height:100vh; display:flex; }
+  #stage { width:340px; min-width:280px; background:linear-gradient(180deg,#eef9ff,#e8ecf7);
+           display:flex; flex-direction:column; align-items:center; padding:16px;
+           border-right:1px solid #d8dce8; }
+  #stage img { width:100%; max-height:70vh; object-fit:contain;
+               border-radius:12px; box-shadow:0 4px 18px rgba(43,58,103,.18); }
+  #emo { margin-top:12px; font-size:15px; background:#fff; border:1px solid var(--gold);
+         color:var(--gold); border-radius:999px; padding:4px 16px; }
+  #name { margin-top:10px; font-size:18px; letter-spacing:2px; }
+  #chat { flex:1; display:flex; flex-direction:column; }
+  #log { flex:1; overflow-y:auto; padding:18px 22px; }
+  .msg { margin-bottom:14px; max-width:78%; padding:10px 14px; border-radius:12px;
+         white-space:pre-wrap; line-height:1.6; }
+  .user { background:var(--accent); color:#fff; margin-left:auto; }
+  .bot { background:#fff; border:1px solid #e0e3ee; }
+  .sys { color:#8a90a6; font-size:12px; max-width:100%; background:none; padding:2px 0; }
+  #bar { display:flex; gap:8px; padding:12px 18px; border-top:1px solid #d8dce8; }
+  #inp { flex:1; padding:10px 12px; border:1px solid #c9cede; border-radius:10px;
+         font-size:14px; }
+  button { padding:10px 18px; border:none; border-radius:10px; background:var(--accent);
+           color:#fff; cursor:pointer; font-size:14px; }
+  #drop { position:fixed; inset:0; background:rgba(74,111,165,.25); display:none;
+          align-items:center; justify-content:center; font-size:22px; color:#fff;
+          z-index:50; }
+  #mask { position:fixed; inset:0; background:rgba(0,0,0,.4); display:none;
+          align-items:center; justify-content:center; z-index:60; }
+  #dlg { background:#fff; border-radius:14px; padding:22px; max-width:440px; }
+  #dlg p { margin-bottom:16px; line-height:1.6; }
+  #dlg .row { display:flex; gap:10px; justify-content:flex-end; }
+  #no { background:#a54a4a; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <img src="/assets/character.jpg" alt="文昭立绘">
+  <div id="emo">温和</div>
+  <div id="name">文昭 · 千问大小姐</div>
+</div>
+<div id="chat">
+  <div id="log"></div>
+  <div id="bar">
+    <button id="mic" title="按住说话">🎤</button>
+    <button id="pick" title="选择文件">📎</button>
+    <input id="fileinp" type="file" style="display:none">
+    <input id="inp" placeholder="和文昭说点什么…（拖文件进来可上传）">
+    <label style="display:flex;align-items:center;gap:4px;font-size:13px">
+      <input id="voice" type="checkbox" checked>语音</label>
+    <button id="send">发送</button>
+  </div>
+  <audio id="player"></audio>
+</div>
+<div id="drop">松开以上传文件</div>
+<div id="mask"><div id="dlg">
+  <p id="q"></p>
+  <div class="row"><button id="no">拒绝</button><button id="yes">允许</button></div>
+</div></div>
+<script>
+const EMO = {smile:"温和",shy:"脸红",smug:"得意",think:"走神",
+             surprise:"两眼放光",speechless:"无奈"};
+const log = document.getElementById("log");
+let ws = null, cur = null;
+function add(cls, text){ const d=document.createElement("div");
+  d.className="msg "+cls; d.textContent=text; log.appendChild(d);
+  log.scrollTop=log.scrollHeight; return d; }
+function connect(){
+  ws = new WebSocket("ws://"+location.host+"/ws");
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if(m.kind==="answer"){ add("bot", m.text); cur=null; }
+    else if(m.kind==="token"){
+      if(!cur) cur=add("bot","");
+      cur.textContent+=m.text; log.scrollTop=log.scrollHeight; }
+    else if(m.kind==="turn_done"){ cur=null; }
+    else if(m.kind==="audio"){
+      if(document.getElementById("voice").checked){
+        const p=document.getElementById("player");
+        p.src=m.url; p.play().catch(()=>{});
+      } }
+    else if(m.kind==="emo"){ document.getElementById("emo").textContent =
+        EMO[m.emo]||m.emo; }
+    else if(m.kind==="status"||m.kind==="tool"){ add("sys", m.text||""); }
+    else if(m.kind==="confirm"){
+      document.getElementById("q").textContent=m.question;
+      document.getElementById("mask").style.display="flex";
+      const done = allow => { document.getElementById("mask").style.display="none";
+        ws.send(JSON.stringify({type:"confirm_reply",id:m.id,allow})); };
+      document.getElementById("yes").onclick=()=>done(true);
+      document.getElementById("no").onclick=()=>done(false);
+    }
+  };
+  ws.onclose = ()=> setTimeout(connect, 1500);
+}
+connect();
+let attachment="";
+function send(){
+  const t=document.getElementById("inp").value.trim();
+  if((!t&&!attachment)||!ws||ws.readyState!==1) return;
+  add("user", t+(attachment?"\n[附件] "+attachment:""));
+  ws.send(JSON.stringify({type:"user",text:t||"看看这个附件",attachment}));
+  document.getElementById("inp").value=""; attachment="";
+}
+document.getElementById("pick").onclick=()=>document.getElementById("fileinp").click();
+document.getElementById("fileinp").onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const fd=new FormData(); fd.append("file",f);
+  const r=await fetch("/upload",{method:"POST",body:fd}).then(r=>r.json());
+  attachment=r.path; add("sys","[已上传] "+r.path);
+};
+let rec=null, chunks=[];
+document.getElementById("mic").onclick=async ()=>{
+  const btn=document.getElementById("mic");
+  if(rec){ rec.stop(); return; }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    rec=new MediaRecorder(stream); chunks=[];
+    rec.ondataavailable=e=>chunks.push(e.data);
+    rec.onstop=async ()=>{
+      stream.getTracks().forEach(t=>t.stop()); rec=null;
+      btn.textContent="🎤";
+      const blob=new Blob(chunks,{type:"audio/webm"});
+      const fd=new FormData(); fd.append("file",blob,"voice.webm");
+      add("sys","[转写中…]");
+      const r=await fetch("/asr",{method:"POST",body:fd}).then(r=>r.json());
+      if(r.text){ document.getElementById("inp").value=r.text; send(); }
+      else add("sys","[转写失败，请改用文字]");
+    };
+    rec.start(); btn.textContent="⏹";
+  }catch(err){ add("sys","[麦克风不可用] "+err); }
+};
+document.getElementById("send").onclick=send;
+document.getElementById("inp").onkeydown=e=>{ if(e.key==="Enter") send(); };
+document.addEventListener("dragover",e=>{e.preventDefault();
+  document.getElementById("drop").style.display="flex";});
+document.addEventListener("dragleave",e=>{ if(e.target===document.documentElement)
+  document.getElementById("drop").style.display="none";});
+document.addEventListener("drop",async e=>{
+  e.preventDefault(); document.getElementById("drop").style.display="none";
+  for(const f of e.dataTransfer.files){
+    const fd=new FormData(); fd.append("file",f);
+    const r=await fetch("/upload",{method:"POST",body:fd}).then(r=>r.json());
+    add("sys","[已上传] "+r.path);
+    document.getElementById("inp").value +=
+      (document.getElementById("inp").value?" ":"")+"文件："+r.path;
+  }
+});
+</script>
+</body>
+</html>
