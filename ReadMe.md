@@ -1,5 +1,8 @@
 # 傲娇千问 V7.1 (工程化 + 队列防并发 + 智能记忆)
 
+> **V8 更新**：已加入 Agent 工具调用（`memory_search` / `get_time` / `calc`）+ 两段式人设，
+> 详见 [AGENT.md](AGENT.md)。Agent 部分不依赖 Ollama 的模板工具机制，自己拼 ChatML。
+
 一个基于 Ollama 本地大模型, 带有长期记忆、自动归纳、思维链展示的工程化 AI 助手终端.
 
 ## 核心特性
